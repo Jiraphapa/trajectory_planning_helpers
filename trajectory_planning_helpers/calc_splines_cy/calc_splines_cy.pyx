@@ -17,6 +17,18 @@ DTYPE = np.int
 # type with a _t-suffix.
 ctypedef np.int_t DTYPE_t
 
+def calc_splines_cython(np.ndarray path,
+                 np.ndarray el_lengths,
+                 float psi_s,
+                 float psi_e,
+                 bool use_dist_scaling) -> tuple:
+                 
+    if use_dist_scaling is None:
+        use_dist_scaling = True
+
+
+    return 1,2,3
+
 def calc_splines(path: np.ndarray,
                  el_lengths: np.ndarray = None,
                  psi_s: float = None,
