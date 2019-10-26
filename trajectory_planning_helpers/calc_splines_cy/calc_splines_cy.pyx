@@ -6,6 +6,7 @@ import math
 cimport numpy as np
 
 print("Cython here")
+print("Declare DTYPE...")
 
 # We now need to fix a datatype for our arrays. I've used the variable
 # DTYPE for this, which is assigned to the usual NumPy runtime
@@ -21,7 +22,7 @@ def calc_splines(path: np.ndarray,
                  psi_s: float = None,
                  psi_e: float = None,
                  use_dist_scaling: bool = True) -> tuple:
-                 
+
      # check if path is closed
     if np.all(np.isclose(path[0], path[-1])):
         closed = True
