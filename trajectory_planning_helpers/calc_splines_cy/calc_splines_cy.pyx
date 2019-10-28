@@ -1,5 +1,6 @@
 import numpy as np
 import math 
+from timeit import Timer
 # import special compile-time information
 cimport numpy as np
 cimport cython
@@ -16,6 +17,7 @@ ctypedef np.float64_t DTYPE_t
 cdef extern from "math.h":
     double sqrt(double m)
     
+    
 # TODO: convert further to cdef
 def calc_splines_cython(np.ndarray path,
                  np.ndarray el_lengths = None,
@@ -24,6 +26,7 @@ def calc_splines_cython(np.ndarray path,
                  bint use_dist_scaling = True) -> tuple:   # bint: "boolean int" object is compiled to a c int
                  
     # check if path is closed
+    cdef bint closed
     if np.all(np.isclose(path[0], path[-1])):
         closed = True
     else:
@@ -47,6 +50,7 @@ def calc_splines_cython(np.ndarray path,
     cdef unsigned int no_splines = x_coord - 1
 
     # calculate scaling factors between every pair of splines
+    cdef np.ndarray[DTYPE_t, ndim=1] scaling
     if use_dist_scaling:
         scaling = el_lengths[:-1] / el_lengths[1:]
     else:
@@ -147,9 +151,16 @@ def calc_splines_cython(np.ndarray path,
     norm_factors = np.expand_dims(norm_factors, axis=1)  # second dimension must be inserted for next step
     normvec_normalized = norm_factors * normvec
 
-    return coeffs_x, coeffs_y, M, normvec_normalized
+    print(type(coeffs_x), type(coeffs_y),type(M), type(normvec_normalized))
+    #cdef (np.ndarray, np.ndarray, np.ndarray, np.ndarray) result
+    result =  coeffs_x, coeffs_y, M, normvec_normalized
+    return result
 
 
 # testing --------------------------------------------------------------------------------------------------------------
 if __name__ == "__main__":
     pass
+
+path = np.ones((15,2))
+t = Timer(lambda: calc_splines_cython(path))
+print("Execution time for calc_splines_cy:",t.timeit(number=1))

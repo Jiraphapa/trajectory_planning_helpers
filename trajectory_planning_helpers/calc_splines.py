@@ -1,5 +1,6 @@
 import numpy as np
 import math
+from timeit import Timer
 
 
 def calc_splines(path: np.ndarray,
@@ -170,3 +171,7 @@ def calc_splines(path: np.ndarray,
 # testing --------------------------------------------------------------------------------------------------------------
 if __name__ == "__main__":
     pass
+
+path = np.ones((15,2))
+t = Timer(lambda: calc_splines(path))
+print("Execution time for calc_splines:",t.timeit(number=1))
