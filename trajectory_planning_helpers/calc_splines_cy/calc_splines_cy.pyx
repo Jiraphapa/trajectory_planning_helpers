@@ -1,41 +1,29 @@
 import numpy as np
-import math
-# "cimport" is used to import special compile-time information
-# about the numpy module (this is stored in a file numpy.pxd which is
-# currently part of the Cython distribution).
+import math 
+# import special compile-time information
 cimport numpy as np
+cimport cython
 
-print("Cython here")
-print("Declare DTYPE...")
-
-# We now need to fix a datatype for our arrays. I've used the variable
-# DTYPE for this, which is assigned to the usual NumPy runtime
-# type info object.
-DTYPE = np.int
+print("calc_splines with cython...")
+# DTYPE is assigned to the NumPy runtime type info object.
+DTYPE = np.float64
 # "ctypedef" assigns a corresponding compile-time type to DTYPE_t. For
 # every type in the numpy module there's a corresponding compile-time
 # type with a _t-suffix.
-ctypedef np.int_t DTYPE_t
+ctypedef np.float64_t DTYPE_t
 
+
+cdef extern from "math.h":
+    double sqrt(double m)
+    
+# TODO: convert further to cdef
 def calc_splines_cython(np.ndarray path,
-                 np.ndarray el_lengths,
-                 float psi_s,
-                 float psi_e,
-                 bool use_dist_scaling) -> tuple:
-                 
-    if use_dist_scaling is None:
-        use_dist_scaling = True
-
-
-    return 1,2,3
-
-def calc_splines(path: np.ndarray,
-                 el_lengths: np.ndarray = None,
-                 psi_s: float = None,
+                 np.ndarray el_lengths = None,
+                 psi_s: float = None,  # retain python type None value cannot be assigned to float variable in C
                  psi_e: float = None,
-                 use_dist_scaling: bool = True) -> tuple:
-
-     # check if path is closed
+                 bint use_dist_scaling = True) -> tuple:   # bint: "boolean int" object is compiled to a c int
+                 
+    # check if path is closed
     if np.all(np.isclose(path[0], path[-1])):
         closed = True
     else:
@@ -52,12 +40,11 @@ def calc_splines(path: np.ndarray,
     if use_dist_scaling and el_lengths is None:
         el_lengths = np.sqrt(np.sum(np.power(np.diff(path, axis=0), 2), axis=1))
 
-    # if closed and use_dist_scaling active append element length in order to obtain overlapping scaling
-    if use_dist_scaling and closed:
-        el_lengths = np.hstack((el_lengths, el_lengths[0]))
+    # Py_ssize_t is the proper C type for Python array indices.
+    cdef Py_ssize_t x_coord = path.shape[0]
 
     # get number of splines
-    no_splines = path.shape[0] - 1
+    cdef unsigned int no_splines = x_coord - 1
 
     # calculate scaling factors between every pair of splines
     if use_dist_scaling:
