@@ -16,8 +16,8 @@ import numpy
 #     include_dirs=[numpy.get_include()]
 # )
 
-ext = [Extension('calc_splines_cy',
+ext = [Extension('wrap_calc_splines_cy',
                  sources=['calc_splines_cy.pyx'],
                  include_dirs=[numpy.get_include()])]
 
-setup(name = 'calc_splines_cy', ext_modules=ext, cmdclass = { 'build_ext': build_pyx })
+setup(name = 'wrap_calc_splines_cy', ext_modules=ext, cmdclass = { 'build_ext': build_pyx })
