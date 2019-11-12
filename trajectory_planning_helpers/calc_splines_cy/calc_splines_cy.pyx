@@ -1,13 +1,10 @@
 import numpy as np
-import math 
 from timeit import Timer
 
-print("calc_splines with cython...")
 # cython: import special compile-time information
 cimport numpy as np
 cimport cython
 
-DTYPE = np.float64
 ctypedef np.float64_t DTYPE_t
 
 #TODO: move to helper function
@@ -203,7 +200,12 @@ if __name__ == "__main__":
 
 path = np.ones((15,2))
 t = Timer(lambda: wrap_calc_splines_cy(path))
-print("Execution time for calc_splines:",t.timeit(number=1))
+print("Execution time for wrap_calc_splines_cy:",t.timeit(number=1))
+
+#import cProfile
+#cProfile.run('main()', sort='time')
+
+
     
     
     
