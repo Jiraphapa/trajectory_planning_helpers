@@ -18,7 +18,7 @@ def calc_splines(path: np.ndarray,
                  use_dist_scaling: bool = True) -> tuple:
 
     # check if path is closed
-    if np.all(isclose(path[0], path[-1])):
+    if np.all(isclose(path[0], path[-1])):      # Numba 0.46.0 does not support NumPy function 'numpy.isclose'
         closed = True
     else:
         closed = False
@@ -36,9 +36,9 @@ def calc_splines(path: np.ndarray,
 
     # if closed and use_dist_scaling active append element length in order to obtain overlapping scaling
     if use_dist_scaling and closed:
+        # (Numba 0.46.0) np.hstack is supported but only for arguments passed in a tuple of arrays  
+        # and the parameter also cannot be Nonetype so it's required to initialize (e.g. np.copy(el_lengths)) somehow
         el_lengths = np.hstack((np.copy(el_lengths), np.array([el_lengths[0]])))
-
-        
 
     # get number of splines
     no_splines = path.shape[0] - 1
@@ -66,7 +66,67 @@ def calc_splines(path: np.ndarray,
                  [0,  1,  2,  3,  0, -1,  0,  0],   # _      a_1i + 2a_2i + 3a_3i      - a_1i+1             = 0
                  [0,  0,  2,  6,  0,  0, -2,  0]])  # _             2a_2i + 6a_3i               - 2a_2i+1   = 0
 
-   
+    for i in range(no_splines):
+        j = i * 4
+
+        if i < no_splines - 1:
+            M[j: j + 4, j: j + 8] = template_M
+
+            M[j + 2, j + 5] *= scaling[i]
+            M[j + 3, j + 6] *= math.pow(scaling[i], 2)
+
+        else:
+            M[j: j + 2, j: j + 4] = np.array([[1,  0,  0,  0],  # no curvature and heading bounds on last element
+                                     [1,  1,  1,  1]])
+
+        b_x[j: j + 2] = np.array([[path[i,     0]],      # NOTE: the bounds of the two last equations remain zero
+                         [path[i + 1, 0]]])
+        b_y[j: j + 2] = np.array([[path[i,     1]],
+                         [path[i + 1, 1]]])
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # SET BOUNDARY CONDITIONS FOR FIRST AND LAST POINT -----------------------------------------------------------------
+    # ------------------------------------------------------------------------------------------------------------------
+
+    if not closed:
+        # We want to fix heading at the start and end point (heading and curvature at start gets unbound at spline end)
+        # heading and curvature boundary condition
+        M[-2, 1] = 1                  # heading start
+        M[-1, -4:] = [0,  1,  2,  3]  # heading end
+        
+        # heading start
+        if el_lengths is None:
+            el_length_s = 1.0
+        else:
+            el_length_s = el_lengths[0]
+
+        if psi_s is not None:   # (Numba 0.46.0) built-in function 'add' does not work with argument(s) of type: none
+            b_x[-2] = math.cos(psi_s + math.pi / 2) * el_length_s
+            b_y[-2] = math.sin(psi_s + math.pi / 2) * el_length_s
+
+        # heading end
+        if el_lengths is None:
+            el_length_e = 1.0
+        else:
+            el_length_e = el_lengths[-1]
+
+        if psi_e is not None:  # (Numba 0.46.0) built-in function 'add' does not work with argument(s) of type: none
+            b_x[-1] = math.cos(psi_e + math.pi / 2) * el_length_e
+            b_y[-1] = math.sin(psi_e + math.pi / 2) * el_length_e
+
+    else:
+        # gradient boundary conditions (for a closed spline)
+        M[-2, 1] = scaling[-1]
+        M[-2, -3:] = [-1, -2, -3]
+        # b_x[-2] = 0
+        # b_y[-2] = 0
+
+        # curvature boundary conditions (for a closed spline)
+        M[-1, 2] = 2 * math.pow(scaling[-1], 2)
+        M[-1, -2:] = [-2, -6]
+        # b_x[-1] = 0
+        # b_y[-1] = 0
+    
     return 1,2,3,4
 
 
