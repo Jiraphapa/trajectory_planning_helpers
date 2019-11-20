@@ -37,9 +37,16 @@ def calc_splines(path: np.ndarray,
     # if closed and use_dist_scaling active append element length in order to obtain overlapping scaling
     if use_dist_scaling and closed:
         #el_lengths = np.hstack((el_lengths, el_lengths[0]))
+
+        print("###############",el_lengths, "+", el_lengths[0])
         el_lengths_0 = np.array([el_lengths[0]])
-        print("########################", (el_lengths, el_lengths_0))
-        #el_lengths = np.hstack((el_lengths, el_lengths_0))
+        result = np.zeros(el_lengths.shape[0])
+        result = np.hstack((result, el_lengths_0))
+        for i, v in enumerate(el_lengths):
+            result[i] = v
+        print("###############",result)
+
+        
 
     # get number of splines
     no_splines = path.shape[0] - 1
