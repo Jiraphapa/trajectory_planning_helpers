@@ -34,6 +34,39 @@ def calc_splines(path: np.ndarray,
     if use_dist_scaling and el_lengths is None:
         el_lengths = np.sqrt(np.sum(np.power(np.diff(path, 0), 2), axis=1))
 
+    # if closed and use_dist_scaling active append element length in order to obtain overlapping scaling
+    if use_dist_scaling and closed:
+        #el_lengths = np.hstack((el_lengths, el_lengths[0]))
+        el_lengths_0 = np.array([el_lengths[0]])
+        print("########################", (el_lengths, el_lengths_0))
+        #el_lengths = np.hstack((el_lengths, el_lengths_0))
+
+    # get number of splines
+    no_splines = path.shape[0] - 1
+
+    # calculate scaling factors between every pair of splines
+    if use_dist_scaling:
+        scaling = el_lengths[:-1] / el_lengths[1:]
+    else:
+        scaling = np.ones(no_splines - 1)
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # DEFINE LINEAR EQUATION SYSTEM ------------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------------------------------------------
+
+    # M_{x,y} * a_{x,y} = b_{x,y}) with a_{x,y} being the desired spline param
+    # *4 because of 4 parameters in cubic spline
+    M = np.zeros((no_splines * 4, no_splines * 4))
+    b_x = np.zeros((no_splines * 4, 1))
+    b_y = np.zeros((no_splines * 4, 1))
+
+    # create template for M array entries
+    template_M = np.array(                          # current time step           | next time step          | bounds
+                [[1,  0,  0,  0,  0,  0,  0,  0],   # a_0i                                                  = {x,y}_i
+                 [1,  1,  1,  1,  0,  0,  0,  0],   # a_0i + a_1i +  a_2i +  a_3i                           = {x,y}_i+1
+                 [0,  1,  2,  3,  0, -1,  0,  0],   # _      a_1i + 2a_2i + 3a_3i      - a_1i+1             = 0
+                 [0,  0,  2,  6,  0,  0, -2,  0]])  # _             2a_2i + 6a_3i               - 2a_2i+1   = 0
+
    
     return 1,2,3,4
 
