@@ -2,6 +2,18 @@ import numpy as np
 import math
 from timeit import Timer
 from numba import jit, vectorize, float64
+from numba.pycc import CC
+
+cc = CC('my_module')
+#cc.verbose = True
+
+@cc.export('isclosef', 'boolean[:](f8[:], f8[:])')
+def isclosef(a, b):
+    rtol, atol = 1.e-5, 1.e-8
+    x, y = np.asarray(a), np.asarray(b)
+    # check if arrays are element-wise equal within a tolerance (assume that both arrays are of valid format)
+    result = np.less_equal(np.abs(x-y), atol + rtol * np.abs(y))   
+    return result
 
 @jit(nopython=True, cache=True)
 def isclose(a, b, rtol=1.e-5, atol=1.e-8, equal_nan=False):
@@ -151,8 +163,10 @@ def calc_splines(path: np.ndarray,
 
 # testing --------------------------------------------------------------------------------------------------------------
 if __name__ == "__main__":
-    pass
+    print("test")
+    cc.compile()
 
+cc.compile()
 
 path = np.ones((15,2))
 t = Timer(lambda: calc_splines(path))
