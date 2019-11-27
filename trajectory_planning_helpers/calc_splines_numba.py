@@ -126,8 +126,27 @@ def calc_splines(path: np.ndarray,
         M[-1, -2:] = [-2, -6]
         # b_x[-1] = 0
         # b_y[-1] = 0
-    
-    return 1,2,3,4
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # SOLVE ------------------------------------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------------------------------------------
+
+    x_les = np.linalg.solve(M, b_x).flatten()    #  flatten/collapsed into one dimension.
+    y_les = np.linalg.solve(M, b_y).flatten()
+
+    # get coefficients of every piece into one row -> reshape
+    coeffs_x = np.reshape(x_les, (no_splines, 4))
+    coeffs_y = np.reshape(y_les, (no_splines, 4))
+
+    # get normal vector (second coefficient of cubic splines is relevant for the gradient)
+    normvec = np.stack((coeffs_y[:, 1], -coeffs_x[:, 1]), axis=1)
+
+    # normalize normal vectors
+    norm_factors = 1.0 / np.sqrt(np.sum(np.power(normvec, 2), axis=1))
+    norm_factors_2 = np.expand_dims(norm_factors, axis=1)  # second dimension must be inserted for next step
+    normvec_normalized = norm_factors_2 * normvec
+
+    return coeffs_x, coeffs_y, M, normvec_normalized
 
 
 # testing --------------------------------------------------------------------------------------------------------------
