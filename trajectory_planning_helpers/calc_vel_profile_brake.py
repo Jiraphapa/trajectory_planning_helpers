@@ -1,25 +1,25 @@
 import numpy as np
 import math
-import warnings
+import trajectory_planning_helpers.calc_vel_profile
 
 
 def calc_vel_profile_brake(ggv: np.ndarray,
                            kappa: np.ndarray,
                            el_lengths: np.ndarray,
                            v_start: float,
+                           dyn_model_exp: float,
+                           drag_coeff: float,
+                           m_veh: float,
                            mu: np.ndarray = None,
-                           decel_max: float = None,
-                           dyn_model_exp: float = 1.0,
-                           drag_coeff: float = 0.85,
-                           m_veh: float = 1160.0) -> np.ndarray:
+                           decel_max: float = None) -> np.ndarray:
     """
-    Created by:
+    Author:
     Alexander Heilmeier
 
     Modified by:
     Tim Stahl
 
-    Documentation:
+    Description:
     Calculate brake (may also be emergency) velocity profile based on a local trajectory.
 
     Inputs:
@@ -55,10 +55,10 @@ def calc_vel_profile_brake(ggv: np.ndarray,
 
     if v_start < 0.0:
         v_start = 0.0
-        warnings.warn('Input v_start was < 0.0. Using v_start = 0.0 instead!')
+        print('WARNING: Input v_start was < 0.0. Using v_start = 0.0 instead!')
 
     if not 1.0 <= dyn_model_exp <= 2.0:
-        warnings.warn('Exponent for the vehicle dynamics model should be in the range [1.0,2.0]!')
+        print('WARNING: Exponent for the vehicle dynamics model should be in the range [1.0,2.0]!')
 
     # ------------------------------------------------------------------------------------------------------------------
     # PREPARATIONS -----------------------------------------------------------------------------------------------------
@@ -83,40 +83,24 @@ def calc_vel_profile_brake(ggv: np.ndarray,
 
     for i in range(no_points - 1):
 
-        # --------------------------------------------------------------------------------------------------------------
-        # CONSIDER TIRE POTENTIAL --------------------------------------------------------------------------------------
-        # --------------------------------------------------------------------------------------------------------------
-
-        ax_max_tires = mu[i] * np.interp(vx_profile[i], ggv[:, 0], ggv[:, 3])
-        ay_max_tires = mu[i] * np.interp(vx_profile[i], ggv[:, 0], ggv[:, 4])
-        ay_used = math.pow(vx_profile[i], 2) / radii[i]
-
-        radicand = 1 - math.pow(ay_used / ay_max_tires, dyn_model_exp)
-
-        if radicand > 0.0:
-            ax_avail_tires = ax_max_tires * math.pow(radicand, 1.0 / dyn_model_exp)
-        else:
-            ax_avail_tires = 0.0
-
-        # --------------------------------------------------------------------------------------------------------------
-        # CONSIDER MACHINE LIMITATIONS ---------------------------------------------------------------------------------
-        # --------------------------------------------------------------------------------------------------------------
-
-        # no limitations in braking case
-        ax_avail_vehicle = ax_avail_tires
-
-        # --------------------------------------------------------------------------------------------------------------
-        # CONSIDER DRAG ------------------------------------------------------------------------------------------------
-        # --------------------------------------------------------------------------------------------------------------
-
-        # calculate equivalent longitudinal acceleration of drag force at the current speed
-        ax_drag = -math.pow(vx_profile[i], 2) * drag_coeff / m_veh
-        ax_final = ax_avail_vehicle + ax_drag
+        # calculat longitudinal acceleration
+        ax_final = trajectory_planning_helpers.calc_vel_profile.calc_ax_poss(vx_start=vx_profile[i],
+                                                                             radius=radii[i],
+                                                                             ggv=ggv[:, [0, 1, 3, 4]],
+                                                                             mu=mu[i],
+                                                                             mode='decel_forw',
+                                                                             dyn_model_exp=dyn_model_exp,
+                                                                             drag_coeff=drag_coeff,
+                                                                             m_veh=m_veh)
 
         # --------------------------------------------------------------------------------------------------------------
         # CONSIDER DESIRED MAXIMUM DECELERATION ------------------------------------------------------------------------
         # --------------------------------------------------------------------------------------------------------------
 
+        # calculate equivalent longitudinal acceleration of drag force at the current speed
+        ax_drag = -math.pow(vx_profile[i], 2) * drag_coeff / m_veh
+
+        # consider desired maximum deceleration
         if decel_max is not None and ax_final < decel_max:
             # since this planner cannot use positive tire accelerations (this would require another interpolation of
             # ggv[:, 2]) to overcome drag we plan with the drag acceleration if it is greater (i.e. more negative) than
