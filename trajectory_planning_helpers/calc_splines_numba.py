@@ -4,7 +4,7 @@ from timeit import Timer
 from numba import jit, vectorize, float64
 from numba.pycc import CC
 
-cc = CC('my_module')
+cc = CC('calc_splines_numba')
 #cc.verbose = True
 
 ## ----------------------------------------------------------------------------------- ##  
