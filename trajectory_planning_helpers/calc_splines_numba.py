@@ -6,8 +6,6 @@ from numba import jit
 
 # Module name
 cc = CC('calc_splines_numba')
-# Uncomment the following line to print out the compilation steps
-#cc.verbose = True
 
 @cc.export('isclose', 'boolean[:](f8[:], f8[:])')
 @jit(nopython=True, cache=True)
@@ -160,9 +158,7 @@ def calc_splines(path: np.ndarray,
 
 # testing --------------------------------------------------------------------------------------------------------------
 if __name__ == "__main__":
-    pass
-
-cc.compile()
+    cc.compile()
 
 path = np.ones((15,2))
 temp = np.ones((14))

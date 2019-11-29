@@ -1,9 +1,11 @@
 import numpy as np
 import math
-import trajectory_planning_helpers.conv_filt
+import conv_filt
 import warnings
 from numba.pycc import CC
+from numba import jit
 
+# Module name
 cc = CC('calc_vel_profile_numba')
 
 def calc_vel_profile(ggv: np.ndarray,
@@ -17,42 +19,6 @@ def calc_vel_profile(ggv: np.ndarray,
                      dyn_model_exp: float = 1.0,
                      drag_coeff: float = 0.85,
                      m_veh: float = 1160.0) -> np.ndarray:
-    """
-    Created by:
-    Alexander Heilmeier
-
-    Modified by:
-    Tim Stahl
-
-    Documentation:
-    Calculates a velocity profile using the tire and motor limits as good as possible.
-
-    Inputs:
-    ggv:                ggv-diagram to be applied: [v, ax_max_machines, ax_max_tires, ax_min_tires, ay_max_tires].
-                        ax_max_machines should be handed in without considering drag resistance!
-    kappa:              curvature profile of given trajectory in rad/m (always unclosed).
-    el_lengths:         element lengths (distances between coordinates) of given trajectory.
-    closed:             flag to set if the velocity profile must be calculated for a closed or unclosed trajectory.
-    mu:                 friction coefficients (always unclosed).
-    v_start:            start velocity in m/s (used in unclosed case only).
-    v_end:              end velocity in m/s (used in unclosed case only).
-    filt_window:        filter window size for moving average filter (must be odd).
-    dyn_model_exp:      exponent used in the vehicle dynamics model (usual range [1.0,2.0]).
-    drag_coeff:         drag coefficient including all constants: drag_coeff = 0.5 * c_w * A_front * rho_air
-    m_veh:              vehicle mass in kg.
-
-    All inputs must be inserted unclosed, i.e. kappa[-1] != kappa[0], even if closed is set True! (el_lengths is kind of
-    closed if closed is True of course!)
-
-    Outputs:
-    vx_profile:         calculated velocity profile (always unclosed).
-
-    case closed is True:
-    len(kappa) = len(el_lengths) = len(mu) = len(vx_profile)
-
-    case closed is False:
-    len(kappa) = len(el_lengths) + 1 = len(mu) = len(vx_profile)
-    """
 
     # check inputs
     if mu is not None and kappa.size != mu.size:
@@ -431,4 +397,4 @@ def calc_ax_poss(vx_start: float,
 
 # testing --------------------------------------------------------------------------------------------------------------
 if __name__ == "__main__":
-    pass
+    cc.compile()
