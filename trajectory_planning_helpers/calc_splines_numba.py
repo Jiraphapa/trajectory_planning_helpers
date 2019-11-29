@@ -48,8 +48,8 @@ def calc_splinesf(path: np.ndarray,
         raise ValueError("el_lengths input must be one element smaller than path input!")
 
     # if distances between path coordinates are not provided but required, calculate euclidean distances as el_lengths
-    # if use_dist_scaling and el_lengths is None:
-    #     el_lengths = np.sqrt(np.sum(np.power(np.diff(path, 0), 2), axis=1))
+    if use_dist_scaling and el_lengths is None:
+        el_lengths = np.sqrt(np.sum(np.power(np.diff(np.copy(path), 0), 2), axis=1))
 
     return np.ones((2,2)), np.ones((2,2)), np.ones((2,2)), np.ones((2,2))
 
