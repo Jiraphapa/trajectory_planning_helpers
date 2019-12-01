@@ -7,7 +7,7 @@ from numba import jit
 # Module name
 cc = CC('calc_splines_numba')
 
-@cc.export('isclose', 'boolean[:](f8[:], f8[:])')
+@cc.export('isclose', 'boolean[:](float64[:], float64[:])')
 @jit(nopython=True, cache=True)
 def isclose(a, b):
     rtol, atol = 1.e-5, 1.e-8
@@ -16,14 +16,45 @@ def isclose(a, b):
     result = np.less_equal(np.abs(x-y), atol + rtol * np.abs(y))   
     return result 
 
-@cc.export('calc_splines', 'UniTuple(f8[:,:],4)(f8[:,:], f8[:], f8, f8, boolean)')
+@cc.export('calc_splines', 'UniTuple(float64[:,:],4)(float64[:,:], float64[:], float64, float64, boolean)')
 @jit(nopython=True, cache=True)
 def calc_splines(path: np.ndarray,
                  el_lengths: np.ndarray = None,
                  psi_s: float = None,
                  psi_e: float = None,
                  use_dist_scaling: bool = True) -> tuple:
+    """
+    Author:
+    Tim Stahl & Alexander Heilmeier
 
+    Description:
+    Solve for a curvature continous cubic spline between given poses
+
+                    P_{x,y}   = a3 *t³ + a2 *t² + a1*t + a0
+                    P_{x,y}'  = 3a3*t² + 2a2*t  + a1
+                    P_{x,y}'' = 6a3*t² + 2a2
+
+                    a * {x; y} = {b_x; b_y}
+
+    Inputs:
+    path:                   x and y coordinates as the basis for the spline construction (closed or unclosed).
+    el_lengths:             distances between path points (closed or unclosed).
+    psi_{s,e}:              orientation of the {start, end} point.
+    use_dist_scaling:       bool flag to indicate if heading and curvature scaling should be performed. This is required
+                            if the distances between the points in the path are not equal.
+
+    path and el_lengths inputs can either be closed or unclosed, but must be consistent! The function detects
+    automatically if the path was inserted closed.
+
+    Outputs:
+    x_coeff:                spline coefficients of the x-component.
+    y_coeff:                spline coefficients of the y-component.
+    M:                      LES coefficients.
+    normvec_normalized:     normalized normal vectors.
+
+    Coefficient matrices have the form a_i, b_i * t, c_i * t^2, d_i * t^3.
+    """
+    
     # check if path is closed
     if np.all(isclose(path[0], path[-1])):      # Numba 0.46.0 does not support NumPy function 'numpy.isclose'
         closed = True
@@ -160,13 +191,13 @@ def calc_splines(path: np.ndarray,
 if __name__ == "__main__":
     cc.compile()
 
-path = np.ones((15,2))
-temp = np.ones((14))
-t = Timer(lambda: calc_splines(path))
-print("Execution time for calc_splines with numba (with compilation):",t.timeit(number=1))
+# path = np.ones((15,2))
+# temp = np.ones((14))
+# t = Timer(lambda: calc_splines(path))
+# print("Execution time for calc_splines with numba (with compilation):",t.timeit(number=1))
 
-path = np.ones((15,2))
-temp = np.ones((14))
-t = Timer(lambda: calc_splines(path))
-print("Execution time for calc_splines with numba (after compilation):",t.timeit(number=1))
+# path = np.ones((15,2))
+# temp = np.ones((14))
+# t = Timer(lambda: calc_splines(path))
+# print("Execution time for calc_splines with numba (after compilation):",t.timeit(number=1))
 

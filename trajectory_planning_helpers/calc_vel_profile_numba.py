@@ -1,9 +1,11 @@
 import numpy as np
 import math
 import conv_filt
-import warnings
+#import trajectory_planning_helpers.conv_filt
 from numba.pycc import CC
 from numba import jit
+from numba import types
+import numba
 
 # Module name
 cc = CC('calc_vel_profile_numba')
@@ -12,13 +14,49 @@ def calc_vel_profile(ggv: np.ndarray,
                      kappa: np.ndarray,
                      el_lengths: np.ndarray,
                      closed: bool,
+                     dyn_model_exp: float,
+                     drag_coeff: float,
+                     m_veh: float,
                      mu: np.ndarray = None,
                      v_start: float = None,
                      v_end: float = None,
-                     filt_window: int = None,
-                     dyn_model_exp: float = 1.0,
-                     drag_coeff: float = 0.85,
-                     m_veh: float = 1160.0) -> np.ndarray:
+                     filt_window: int = None) -> np.ndarray:
+    """
+    Author:
+    Alexander Heilmeier
+
+    Modified by:
+    Tim Stahl
+
+    Description:
+    Calculates a velocity profile using the tire and motor limits as good as possible.
+
+    Inputs:
+    ggv:                ggv-diagram to be applied: [v, ax_max_machines, ax_max_tires, ax_min_tires, ay_max_tires].
+                        ax_max_machines should be handed in without considering drag resistance!
+    kappa:              curvature profile of given trajectory in rad/m (always unclosed).
+    el_lengths:         element lengths (distances between coordinates) of given trajectory.
+    closed:             flag to set if the velocity profile must be calculated for a closed or unclosed trajectory.
+    mu:                 friction coefficients (always unclosed).
+    v_start:            start velocity in m/s (used in unclosed case only).
+    v_end:              end velocity in m/s (used in unclosed case only).
+    filt_window:        filter window size for moving average filter (must be odd).
+    dyn_model_exp:      exponent used in the vehicle dynamics model (usual range [1.0,2.0]).
+    drag_coeff:         drag coefficient including all constants: drag_coeff = 0.5 * c_w * A_front * rho_air
+    m_veh:              vehicle mass in kg.
+
+    All inputs must be inserted unclosed, i.e. kappa[-1] != kappa[0], even if closed is set True! (el_lengths is kind of
+    closed if closed is True of course!)
+
+    Outputs:
+    vx_profile:         calculated velocity profile (always unclosed).
+
+    case closed is True:
+    len(kappa) = len(el_lengths) = len(mu) = len(vx_profile)
+
+    case closed is False:
+    len(kappa) = len(el_lengths) + 1 = len(mu) = len(vx_profile)
+    """
 
     # check inputs
     if mu is not None and kappa.size != mu.size:
@@ -35,14 +73,14 @@ def calc_vel_profile(ggv: np.ndarray,
 
     if v_start is not None and v_start < 0.0:
         v_start = 0.0
-        warnings.warn('Input v_start was < 0.0. Using v_start = 0.0 instead!')
+        print('WARNING: Input v_start was < 0.0. Using v_start = 0.0 instead!')
 
     if v_end is not None and v_end < 0.0:
         v_end = 0.0
-        warnings.warn('Input v_end was < 0.0. Using v_end = 0.0 instead!')
+        print('WARNING: Input v_end was < 0.0. Using v_end = 0.0 instead!')
 
     if not 1.0 <= dyn_model_exp <= 2.0:
-        warnings.warn('Exponent for the vehicle dynamics model should be in the range [1.0,2.0]!')
+        print('WARNING: Exponent for the vehicle dynamics model should be in the range [1.0,2.0]!')
 
     # ------------------------------------------------------------------------------------------------------------------
     # SPEED PROFILE CALCULATION (FB) -----------------------------------------------------------------------------------
@@ -124,7 +162,7 @@ def __solver_fb_unclosed(ggv: np.ndarray,
                                          el_lengths=el_lengths,
                                          mu=mu,
                                          vx_profile=vx_profile,
-                                         rev_dir=False,
+                                         backwards=False,
                                          dyn_model_exp=dyn_model_exp,
                                          drag_coeff=drag_coeff,
                                          m_veh=m_veh)
@@ -139,7 +177,7 @@ def __solver_fb_unclosed(ggv: np.ndarray,
                                          el_lengths=el_lengths,
                                          mu=mu,
                                          vx_profile=vx_profile,
-                                         rev_dir=True,
+                                         backwards=True,
                                          dyn_model_exp=dyn_model_exp,
                                          drag_coeff=drag_coeff,
                                          m_veh=m_veh)
@@ -189,7 +227,7 @@ def __solver_fb_closed(ggv: np.ndarray,
                                                 el_lengths=el_lengths_double,
                                                 mu=mu_double,
                                                 vx_profile=vx_profile_double,
-                                                rev_dir=False,
+                                                backwards=False,
                                                 dyn_model_exp=dyn_model_exp,
                                                 drag_coeff=drag_coeff,
                                                 m_veh=m_veh)
@@ -203,7 +241,7 @@ def __solver_fb_closed(ggv: np.ndarray,
                                                 el_lengths=el_lengths_double,
                                                 mu=mu_double,
                                                 vx_profile=vx_profile_double,
-                                                rev_dir=True,
+                                                backwards=True,
                                                 dyn_model_exp=dyn_model_exp,
                                                 drag_coeff=drag_coeff,
                                                 m_veh=m_veh)
@@ -219,10 +257,10 @@ def __solver_fb_acc_profile(ggv: np.ndarray,
                             el_lengths: np.ndarray,
                             mu: np.ndarray,
                             vx_profile: np.ndarray,
-                            rev_dir: bool = False,
-                            dyn_model_exp: float = 1.0,
-                            drag_coeff: float = 0.85,
-                            m_veh: float = 1160.0) -> np.ndarray:
+                            dyn_model_exp: float,
+                            drag_coeff: float,
+                            m_veh: float,
+                            backwards: bool = False) -> np.ndarray:
 
     # ------------------------------------------------------------------------------------------------------------------
     # PREPARATIONS -----------------------------------------------------------------------------------------------------
@@ -231,22 +269,20 @@ def __solver_fb_acc_profile(ggv: np.ndarray,
     vx_max = ggv[-1, 0]
     no_points = vx_profile.size
 
-    # check for reverse direction -> modify ggv (exchange second and third column), vx_profile, radii and el_lengths
-    if rev_dir:
-        ggv_mod = np.copy(ggv)
-        ggv_mod[:, [2, 3]] = ggv_mod[:, [3, 2]]
-        ggv_mod[:, 2] = np.abs(ggv_mod[:, 2])
-        ggv_mod[:, 3] = -np.abs(ggv_mod[:, 3])
-
+    # check for reversed direction -> modify vx_profile, radii and el_lengths
+    if backwards:
+        ggv_mod = ggv[:, [0, 1, 3, 4]]  # use negative acceleration in x axis if we are going backwards
         radii_mod = np.flipud(radii)
         el_lengths_mod = np.flipud(el_lengths)
         mu_mod = np.flipud(mu)
         vx_profile = np.flipud(vx_profile)
+        mode = 'decel_backw'
     else:
-        ggv_mod = ggv
+        ggv_mod = ggv[:, [0, 1, 2, 4]]
         radii_mod = radii
         el_lengths_mod = el_lengths
         mu_mod = mu
+        mode = 'accel_forw'
 
     # ------------------------------------------------------------------------------------------------------------------
     # SEARCH START POINTS FOR ACCELERATION PHASES ----------------------------------------------------------------------
@@ -279,16 +315,16 @@ def __solver_fb_acc_profile(ggv: np.ndarray,
 
             ax_possible_cur = calc_ax_poss(vx_start=vx_profile[i],
                                            radius=radii_mod[i],
-                                           ggv=ggv_mod[:, [0, 1, 2, 4]],
+                                           ggv=ggv_mod,
                                            mu=mu_mod[i],
-                                           brake_case=rev_dir,
+                                           mode=mode,
                                            dyn_model_exp=dyn_model_exp,
                                            drag_coeff=drag_coeff,
                                            m_veh=m_veh)
 
             vx_possible_next = math.sqrt(math.pow(vx_profile[i], 2) + 2 * ax_possible_cur * el_lengths_mod[i])
 
-            if rev_dir:
+            if backwards:
                 """
                 We have to loop the calculation if we are in the backwards iteration (currently just once). This is 
                 because we calculate the possible ax at a point i which does not necessarily fit for point i + 1 
@@ -301,9 +337,9 @@ def __solver_fb_acc_profile(ggv: np.ndarray,
                 for j in range(1):
                     ax_possible_next = calc_ax_poss(vx_start=vx_possible_next,
                                                     radius=radii_mod[i + 1],
-                                                    ggv=ggv_mod[:, [0, 1, 2, 4]],
+                                                    ggv=ggv_mod,
                                                     mu=mu_mod[i + 1],
-                                                    brake_case=rev_dir,
+                                                    mode=mode,
                                                     dyn_model_exp=dyn_model_exp,
                                                     drag_coeff=drag_coeff,
                                                     m_veh=m_veh)
@@ -331,25 +367,48 @@ def __solver_fb_acc_profile(ggv: np.ndarray,
     # ------------------------------------------------------------------------------------------------------------------
 
     # flip output vel_profile if necessary
-    if rev_dir:
+    if backwards:
         vx_profile = np.flipud(vx_profile)
 
     return vx_profile
 
 
+@cc.export('calc_ax_poss', 'float64(float64, float64, float64[:,:], float64, float64, float64, float64, unicode_type)')
+@jit(nopython=True, cache=True)
 def calc_ax_poss(vx_start: float,
                  radius: float,
                  ggv: np.ndarray,
                  mu: float,
-                 brake_case: bool,
-                 dyn_model_exp: float = 1.0,
-                 drag_coeff: float = 0.85,
-                 m_veh: float = 1160.0) -> float:
+                 dyn_model_exp: float,
+                 drag_coeff: float,
+                 m_veh: float,
+                 mode: str = 'accel_forw') -> float:
     """
     This function returns the possible longitudinal acceleration in the current step/point.
 
-    ggv is [v, ax_max_machines, ax_max_tires, ay_max_tires].
+    Inputs:
+    vx_start:           [m/s] velocity at current point
+    radius:             [m] radius on which the car is currently driving
+    ggv:                [v_mps, ax_max_machines_mps2, ax_max_tires_mps2, ay_max_tires_mps2] ggv diagram
+    mu:                 [-] current friction value
+    dyn_model_exp:      [-] exponent used in the vehicle dynamics model (usual range [1.0,2.0]).
+    drag_coeff:         [m2*kg/m3] drag coefficient including all constants: drag_coeff = 0.5 * c_w * A_front * rho_air
+    m_veh:              [kg] vehicle mass
+    mode:               [-] operation mode, can be 'accel_forw', 'decel_forw', 'decel_backw'
+                            -> determines if machine limitations are considered and if ax should be considered negative
+                            or positive during deceleration (for possible backwards iteration)
+
+    Outputs:
+    ax_final:           [m/s2] final acceleration from current point to next one
     """
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # PREPARATIONS -----------------------------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------------------------------------------
+
+    # check input
+    if mode not in ['accel_forw', 'decel_forw', 'decel_backw']:
+        raise ValueError("Unknown operation mode for calc_ax_poss!")
 
     # ------------------------------------------------------------------------------------------------------------------
     # CONSIDER TIRE POTENTIAL ------------------------------------------------------------------------------------------
@@ -360,7 +419,13 @@ def calc_ax_poss(vx_start: float,
     ay_max_tires = mu * np.interp(vx_start, ggv[:, 0], ggv[:, 3])
     ay_used = math.pow(vx_start, 2) / radius
 
-    radicand = 1 - math.pow(ay_used / ay_max_tires, dyn_model_exp)
+    # during forward acceleration and backward deceleration ax_max_tires must be considered positive
+    if mode in ['accel_forw', 'decel_backw']:
+        ax_max_tires = math.fabs(ax_max_tires)
+    else:
+        ax_max_tires = -math.fabs(ax_max_tires)
+
+    radicand = 1.0 - math.pow(ay_used / ay_max_tires, dyn_model_exp)
 
     if radicand > 0.0:
         ax_avail_tires = ax_max_tires * math.pow(radicand, 1.0 / dyn_model_exp)
@@ -371,8 +436,8 @@ def calc_ax_poss(vx_start: float,
     # CONSIDER MACHINE LIMITATIONS -------------------------------------------------------------------------------------
     # ------------------------------------------------------------------------------------------------------------------
 
-    # consider limitations imposed by electrical machines for positive acceleration (i.e. only forward direction)
-    if not brake_case:
+    # consider limitations imposed by electrical machines during forward acceleration
+    if mode == 'accel_forw':
         # interpolate machine acceleration to be able to consider varying gear ratios, efficiencies etc.
         ax_max_machines = np.interp(vx_start, ggv[:, 0], ggv[:, 1])
         ax_avail_vehicle = min(ax_avail_tires, ax_max_machines)
@@ -386,11 +451,12 @@ def calc_ax_poss(vx_start: float,
     # calculate equivalent longitudinal acceleration of drag force at the current speed
     ax_drag = -math.pow(vx_start, 2) * drag_coeff / m_veh
 
-    if not brake_case:
+    # drag reduces the possible acceleration in the forward case and increases it in the backward case
+    if mode in ['accel_forw', 'decel_forw']:
         ax_final = ax_avail_vehicle + ax_drag
         # attention: this value will now be negative in forward direction if tire is entirely used for cornering
     else:
-        ax_final = ax_avail_vehicle - ax_drag  # drag must be considered positive here
+        ax_final = ax_avail_vehicle - ax_drag
 
     return ax_final
 
