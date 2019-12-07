@@ -4,8 +4,6 @@ import conv_filt
 #import trajectory_planning_helpers.conv_filt
 from numba.pycc import CC
 from numba import jit
-from numba import types
-import numba
 
 # Module name
 cc = CC('calc_vel_profile_numba')
@@ -251,7 +249,12 @@ def __solver_fb_closed(ggv: np.ndarray,
 
     return vx_profile
 
+@jit(nopython=True, cache=True)
+def flipud(arr):
+    return arr[::-1, ...]
 
+@cc.export('__solver_fb_acc_profile', 'float64[:](float64[:,:], float64[:], float64[:], float64[:], float64[:], float64, float64, float64, boolean)')
+@jit(nopython=True, cache=True)
 def __solver_fb_acc_profile(ggv: np.ndarray,
                             radii: np.ndarray,
                             el_lengths: np.ndarray,
@@ -271,14 +274,16 @@ def __solver_fb_acc_profile(ggv: np.ndarray,
 
     # check for reversed direction -> modify vx_profile, radii and el_lengths
     if backwards:
-        ggv_mod = ggv[:, [0, 1, 3, 4]]  # use negative acceleration in x axis if we are going backwards
-        radii_mod = np.flipud(radii)
-        el_lengths_mod = np.flipud(el_lengths)
-        mu_mod = np.flipud(mu)
-        vx_profile = np.flipud(vx_profile)
+        col = np.asarray([0, 1, 3, 4])
+        ggv_mod = ggv[:, col]  # use negative acceleration in x axis if we are going backwards
+        radii_mod = flipud(radii)
+        el_lengths_mod = flipud(el_lengths)
+        mu_mod = flipud(mu)
+        vx_profile = flipud(vx_profile)
         mode = 'decel_backw'
     else:
-        ggv_mod = ggv[:, [0, 1, 2, 4]]
+        col = np.asarray([0, 1, 2, 4])
+        ggv_mod = ggv[:, col]
         radii_mod = radii
         el_lengths_mod = el_lengths
         mu_mod = mu
@@ -288,16 +293,22 @@ def __solver_fb_acc_profile(ggv: np.ndarray,
     # SEARCH START POINTS FOR ACCELERATION PHASES ----------------------------------------------------------------------
     # ------------------------------------------------------------------------------------------------------------------
 
-    vx_diffs = np.diff(vx_profile)
+    vx_diffs = np.diff(np.copy(vx_profile))
     acc_inds = np.where(vx_diffs > 0.0)[0]                  # indices of points with positive acceleration
     if acc_inds.size != 0:
         # check index diffs -> we only need the first point of every acceleration phase
         acc_inds_diffs = np.diff(acc_inds)
-        acc_inds_diffs = np.insert(acc_inds_diffs, 0, 2)    # first point is always a starting point
-        acc_inds_rel = acc_inds[acc_inds_diffs > 1]         # starting point indices for acceleration phases
+        #acc_inds_diffs = insert(acc_inds_diffs, 0, 2)    # Numba 0.46.0 currently not support numpy.insert
+        # TODO: extract into insert function    
+        acc_inds_diffs_ = list(acc_inds_diffs.flatten())           # first point is always a starting point
+        acc_inds_diffs_.insert(0,2)
+        acc_inds_diffs = np.asarray(acc_inds_diffs_)
+        acc_inds_rel = list(acc_inds[acc_inds_diffs > 1])         # starting point indices for acceleration phases
     else:
-        acc_inds_rel = []                                   # if vmax is low and can be driven all the time
-
+        #acc_inds_rel = []                                   # if vmax is low and can be driven all the time
+        # define empty list, but instruct that the type is np.float64(x) to avoid Numnba untyped list problem
+        acc_inds_rel = [np.int64(x) for x in range(0)]
+        
     # ------------------------------------------------------------------------------------------------------------------
     # CALCULATE VELOCITY PROFILE ---------------------------------------------------------------------------------------
     # ------------------------------------------------------------------------------------------------------------------
@@ -368,7 +379,7 @@ def __solver_fb_acc_profile(ggv: np.ndarray,
 
     # flip output vel_profile if necessary
     if backwards:
-        vx_profile = np.flipud(vx_profile)
+        vx_profile = flipud(vx_profile)
 
     return vx_profile
 
