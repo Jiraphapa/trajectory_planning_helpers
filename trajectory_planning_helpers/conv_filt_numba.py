@@ -1,5 +1,21 @@
 import numpy as np
+from numba.pycc import CC
 from numba import jit
+
+# Module name
+cc = CC('conv_filt_numba')
+
+# Only return the middle values of the convolution. Contains boundary effects, where zeros are taken into account:
+# returns output of length max(m, n).
+@jit(nopython=True)
+def apply_same_mode(array ,m, n):
+    if m > n:
+        m, n = n, m
+    length = m
+    n = n
+    n_left = n//2
+    n_right = n - n_left - 1;
+    return array[n_left:-n_right]
 
 @jit(nopython=True)
 def conv_filt(signal: np.ndarray,
@@ -41,19 +57,13 @@ def conv_filt(signal: np.ndarray,
         signal_tmp = np.concatenate((signal[-w_window_half:], signal, signal[:w_window_half]), axis=0)
 
         # apply convolution filter used as a moving average filter and remove temporary points
+        # Notes: Numba 0.46.0 currently support numpy.convolve with only 2 first arguments, 
         signal_filt = np.convolve(signal_tmp,
-                                  np.ones(filt_window) / float(filt_window))[w_window_half:-w_window_half]
-        n1 = signal_tmp.shape[0];
-        n2 = filt_window;
-        if n1 > n2:
-            temp = n1
-            n1 = n2
-            n2 = temp
-        length = n1
-        n = n2
-        n_left = n//2
-        n_right = n - n_left - 1;
-        signal_filt = signal_filt[n_left:-n_right]
+                                  np.ones(filt_window) / float(filt_window)
+                                  )[w_window_half:-w_window_half]
+
+        # apply_same_mode function works equivalent to adding 'mode="same"' argument in numpy.convolve
+        signal_filt = apply_same_mode(signal_filt, signal_tmp.shape[0], filt_window)
 
     else:
         # implementation 1: include boundaries during filtering
@@ -72,25 +82,17 @@ def conv_filt(signal: np.ndarray,
 
         # implementation 2: start filtering at w_window_half and stop at -w_window_half
         signal_filt = np.copy(signal)
-        signal_filt_tmp = np.convolve(signal,
-                                                                np.ones(filt_window) / float(filt_window),
-                                                                )[w_window_half:-w_window_half]
-        n1 = signal.shape[0];
-        n2 = filt_window;
-        if n1 > n2:
-            temp = n1
-            n1 = n2
-            n2 = temp
-        length = n1
-        n = n2
-        n_left = n//2
-        n_right = n - n_left - 1;
 
-        signal_filt[w_window_half:-w_window_half] = signal_filt_tmp[n_left:-n_right]
+        signal_filt_tmp = np.convolve(signal,
+                                      np.ones(filt_window) / float(filt_window)
+                                      )[w_window_half:-w_window_half]
+
+        # apply_same_mode function works equivalent to adding 'mode="same"' argument in numpy.convolve
+        signal_filt[w_window_half:-w_window_half] = apply_same_mode(signal_filt_tmp, signal.shape[0], filt_window)
 
     return signal_filt
 
 
 # testing --------------------------------------------------------------------------------------------------------------
 if __name__ == "__main__":
-    pass
+    cc.compile()
