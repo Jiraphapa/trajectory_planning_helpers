@@ -1,13 +1,19 @@
 import numpy as np
 import math
-import conv_filt
 #import trajectory_planning_helpers.conv_filt
+import conv_filt_numba
 from numba.pycc import CC
 from numba import jit
 
 # Module name
 cc = CC('calc_vel_profile_numba')
 
+@jit(nopython=True, cache=True)
+def test():
+    print(np.divide(1.0, np.zeros((5))))
+
+@cc.export('calc_vel_profile', 'float64[:](float64[:,:], float64[:], float64[:], boolean, float64, float64, float64, float64[:], float64, float64, int64)')
+@jit(nopython=True, cache=True)
 def calc_vel_profile(ggv: np.ndarray,
                      kappa: np.ndarray,
                      el_lengths: np.ndarray,
@@ -85,7 +91,9 @@ def calc_vel_profile(ggv: np.ndarray,
     # ------------------------------------------------------------------------------------------------------------------
 
     # transform curvature kappa into corresponding radii (abs because curvature has a sign in our convention)
-    radii = np.abs(np.divide(1.0, kappa, out=np.full(kappa.size, np.inf), where=kappa != 0.0))
+    # Notes: Numba 0.46.0 currently support numpy.divide with only 3 arguments,
+    # division by zero always yield inf, the same behavior with adding the condition 'where=kappa != 0.0'
+    radii = np.abs(np.divide(1.0, kappa, np.full(kappa.size, np.inf)))
 
     # set mu to one in case it is not set
     if mu is None:
@@ -117,13 +125,14 @@ def calc_vel_profile(ggv: np.ndarray,
     # ------------------------------------------------------------------------------------------------------------------
 
     if filt_window is not None:
-        vx_profile = trajectory_planning_helpers.conv_filt.conv_filt(signal=vx_profile,
+        vx_profile = conv_filt_numba.conv_filt(signal=vx_profile,
                                                                      filt_window=filt_window,
                                                                      closed=closed)
 
     return vx_profile
 
-
+@cc.export('__solver_fb_unclosed', 'float64[:](float64[:,:], float64[:], float64[:], float64[:], float64, float64, float64, float64, float64)')
+@jit(nopython=True, cache=True)
 def __solver_fb_unclosed(ggv: np.ndarray,
                          radii: np.ndarray,
                          el_lengths: np.ndarray,
@@ -182,7 +191,8 @@ def __solver_fb_unclosed(ggv: np.ndarray,
 
     return vx_profile
 
-
+@cc.export('__solver_fb_closed', 'float64[:](float64[:,:], float64[:], float64[:], float64[:], float64, float64, float64)')
+@jit(nopython=True, cache=True)
 def __solver_fb_closed(ggv: np.ndarray,
                        radii: np.ndarray,
                        el_lengths: np.ndarray,
