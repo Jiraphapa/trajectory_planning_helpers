@@ -8,7 +8,7 @@ cc = CC('conv_filt_numba')
 # Only return the middle values of the convolution. Contains boundary effects, where zeros are taken into account:
 # returns output of length max(m, n).
 @jit(nopython=True)
-def apply_same_mode(array ,m, n):
+def get_middle_values(array ,m, n):
     if m > n:
         m, n = n, m
     length = m
@@ -62,8 +62,8 @@ def conv_filt(signal: np.ndarray,
                                   np.ones(filt_window) / float(filt_window)
                                   )[w_window_half:-w_window_half]
 
-        # apply_same_mode function works equivalent to adding 'mode="same"' argument in numpy.convolve
-        signal_filt = apply_same_mode(signal_filt, signal_tmp.shape[0], filt_window)
+        # get_middle_values function works equivalent to adding 'mode="same"' argument in numpy.convolve
+        signal_filt = get_middle_values(signal_filt, signal_tmp.shape[0], filt_window)
 
     else:
         # implementation 1: include boundaries during filtering
@@ -87,8 +87,8 @@ def conv_filt(signal: np.ndarray,
                                       np.ones(filt_window) / float(filt_window)
                                       )[w_window_half:-w_window_half]
 
-        # apply_same_mode function works equivalent to adding 'mode="same"' argument in numpy.convolve
-        signal_filt[w_window_half:-w_window_half] = apply_same_mode(signal_filt_tmp, signal.shape[0], filt_window)
+        # get_middle_values function works equivalent to adding 'mode="same"' argument in numpy.convolve
+        signal_filt[w_window_half:-w_window_half] = get_middle_values(signal_filt_tmp, signal.shape[0], filt_window)
 
     return signal_filt
 
