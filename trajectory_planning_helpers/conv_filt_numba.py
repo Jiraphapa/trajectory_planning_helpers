@@ -6,17 +6,17 @@ from numba import jit
 cc = CC('conv_filt_numba')
 
 # Only return the middle values of the convolution. Contains boundary effects, where zeros are taken into account:
-# returns output of length max(m, n).
+# returns output of length max(n1, n2).
 @jit(nopython=True)
-def get_middle_values(array ,m, n):
-    if m > n:
-        m, n = n, m
-    length = m
-    n = n
-    n_left = n//2
+def get_middle_values(array, n1, n2):
+    if n1 < n2:
+        n1, n2 = n2, n1
+    n = n2
+    n_left = int(n/2)
     n_right = n - n_left - 1;
     return array[n_left:-n_right]
 
+@cc.export('conv_filt', 'float64[:](float64[:], int64, boolean)')
 @jit(nopython=True)
 def conv_filt(signal: np.ndarray,
               filt_window: int,
@@ -59,11 +59,10 @@ def conv_filt(signal: np.ndarray,
         # apply convolution filter used as a moving average filter and remove temporary points
         # Notes: Numba 0.46.0 currently support numpy.convolve with only 2 first arguments, 
         signal_filt = np.convolve(signal_tmp,
-                                  np.ones(filt_window) / float(filt_window)
-                                  )[w_window_half:-w_window_half]
+                                  np.ones(filt_window) / float(filt_window))
 
         # get_middle_values function works equivalent to adding 'mode="same"' argument in numpy.convolve
-        signal_filt = get_middle_values(signal_filt, signal_tmp.shape[0], filt_window)
+        signal_filt = get_middle_values(signal_filt, signal_tmp.shape[0], filt_window)[w_window_half:-w_window_half]
 
     else:
         # implementation 1: include boundaries during filtering
@@ -85,10 +84,10 @@ def conv_filt(signal: np.ndarray,
 
         signal_filt_tmp = np.convolve(signal,
                                       np.ones(filt_window) / float(filt_window)
-                                      )[w_window_half:-w_window_half]
+                                      )
 
         # get_middle_values function works equivalent to adding 'mode="same"' argument in numpy.convolve
-        signal_filt[w_window_half:-w_window_half] = get_middle_values(signal_filt_tmp, signal.shape[0], filt_window)
+        signal_filt[w_window_half:-w_window_half] = get_middle_values(signal_filt_tmp, signal.shape[0], filt_window)[w_window_half:-w_window_half]
 
     return signal_filt
 
