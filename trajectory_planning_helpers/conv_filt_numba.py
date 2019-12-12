@@ -2,9 +2,6 @@ import numpy as np
 from numba.pycc import CC
 from numba import jit
 
-# Module name
-cc = CC('conv_filt_numba')
-
 # Only return the middle values of the convolution. Contains boundary effects, where zeros are taken into account:
 # returns output of length max(n1, n2).
 @jit(nopython=True)
@@ -16,7 +13,6 @@ def get_middle_values(array, n1, n2):
     n_right = n - n_left - 1;
     return array[n_left:-n_right]
 
-@cc.export('conv_filt', 'float64[:](float64[:], int64, boolean)')
 @jit(nopython=True)
 def conv_filt(signal: np.ndarray,
               filt_window: int,
@@ -94,4 +90,4 @@ def conv_filt(signal: np.ndarray,
 
 # testing --------------------------------------------------------------------------------------------------------------
 if __name__ == "__main__":
-    cc.compile()
+    pass
