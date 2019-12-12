@@ -1,5 +1,4 @@
 import numpy as np
-from numba.pycc import CC
 from numba import jit
 
 # Only return the middle values of the convolution. Contains boundary effects, where zeros are taken into account:
