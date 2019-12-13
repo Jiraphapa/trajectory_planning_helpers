@@ -16,6 +16,23 @@ def isclose(a, b):
     result = np.less_equal(np.abs(x-y), atol + rtol * np.abs(y))   
     return result 
 
+# @cc.export('diff', 'float64[:,:](float64[:,:], int64)')
+# @jit(nopython=True, cache=True)
+# def diff(arr, axis=0):
+#     assert arr.ndim == 2
+#     assert axis in [0, 1]
+#     if axis == 0:
+#         result = np.empty(arr.shape[0]-1, arr.shape[1])
+#         for i in range(len(result)):
+#             arr2 = np.copy(arr)[:, i].flatten()
+#             result[i] = np.diff(arr2)
+#     else:
+#         result = np.empty(arr.shape[0])
+#         for i in range(len(result)):
+#             arr2 = np.copy(arr)[i, :].flatten()
+#             result[i] = np.diff(arr2)
+#     return result
+
 @cc.export('calc_splines', 'UniTuple(float64[:,:],4)(float64[:,:], float64[:], float64, float64, boolean)')
 @jit(nopython=True, cache=True)
 def calc_splines(path: np.ndarray,
@@ -70,7 +87,9 @@ def calc_splines(path: np.ndarray,
 
     # if distances between path coordinates are not provided but required, calculate euclidean distances as el_lengths
     if use_dist_scaling and el_lengths is None:
-        el_lengths = np.sqrt(np.sum(np.power(np.diff(np.copy(path), 0), 2), axis=1))
+        #TODO: fix logic error for np.diff!
+        el_lengths = np.sqrt(np.sum(np.power(np.diff(np.copy(path)), 2), axis=1))
+        #el_lengths = np.sqrt(np.sum(np.power(diff(path, axis=0), 2), axis=1))
 
     # if closed and use_dist_scaling active append element length in order to obtain overlapping scaling
     if use_dist_scaling and closed:
@@ -196,8 +215,5 @@ if __name__ == "__main__":
 # t = Timer(lambda: calc_splines(path))
 # print("Execution time for calc_splines with numba (with compilation):",t.timeit(number=1))
 
-# path = np.ones((15,2))
-# temp = np.ones((14))
-# t = Timer(lambda: calc_splines(path))
 # print("Execution time for calc_splines with numba (after compilation):",t.timeit(number=1))
 
