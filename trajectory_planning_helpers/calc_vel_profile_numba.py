@@ -255,12 +255,14 @@ def __solver_fb_closed(ggv: np.ndarray,
 
     return vx_profile
 
+@cc.export('flipud', 'float64[:](float64[:])')
 @jit(nopython=True, cache=True)
-def flipud(arr):
+def flipud(arr): # implementation for np.flipud function
     return arr[::-1, ...]
 
+@cc.export('insert', 'float64[:](float64[:], uint64, float64)')
 @jit(nopython=True, cache=True)
-def insert(array, index, value):
+def insert(array, index, value): # implementation for np.insert function
     result_list = list(array.flatten())           
     result_list.insert(index,value)
     return np.asarray(result_list)
