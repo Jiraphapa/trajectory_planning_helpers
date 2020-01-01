@@ -9,27 +9,27 @@ cc = CC('calc_splines_numba')
 
 @cc.export('isclose', 'boolean[:](float64[:], float64[:])')
 @jit(nopython=True, cache=True)
-def isclose(a, b):
+def isclose(a, b):  # implementation for np.isclose function
+    assert np.all(np.isfinite(a)) and np.all(np.isfinite(b))
     rtol, atol = 1.e-5, 1.e-8
     x, y = np.asarray(a), np.asarray(b)
     # check if arrays are element-wise equal within a tolerance (assume that both arrays are of valid format)
     result = np.less_equal(np.abs(x-y), atol + rtol * np.abs(y))   
     return result 
 
-@cc.export('diff', 'float64[:,:](float64[:,:], int64)')
+@cc.export('diff', 'float64[:,:](float64[:,:], uint8)')
 @jit(nopython=True, cache=True)
-def diff(arr, axis=0):
+def diff(arr, axis=0):   # implementation for np.diff function
     assert arr.ndim == 2
     assert axis in [0, 1]
     if axis == 0:
         result = np.empty((arr.shape[1], arr.shape[0]-1))
-        #result = np.empty(arr.shape[0]-1, arr.shape[1])
         for i in range(len(arr)):
             arr2 = np.copy(arr)[:, i].flatten()
             result[i] = np.diff(arr2)
         return np.transpose(result)
     else:
-        return np.diff(np.copy(arr))    # default is the last axis.
+        return np.diff(np.copy(arr))    # default is the last axis (axis=1)
 
 @cc.export('calc_splines', 'UniTuple(float64[:,:],4)(float64[:,:], float64[:], float64, float64, boolean)')
 @jit(nopython=True, cache=True)
@@ -206,10 +206,10 @@ def calc_splines(path: np.ndarray,
 if __name__ == "__main__":
     cc.compile()
 
-# path = np.ones((15,2))
-# el_lengths = np.ones((14))
-# t = Timer(lambda: calc_splines(path,el_lengths))
-# print("Execution time for calc_splines with numba (with compilation):",t.timeit(number=1))
+path = np.ones((15,2))
+el_lengths = np.ones((14))
+t = Timer(lambda: calc_splines(path,el_lengths))
+print("Execution time for calc_splines with numba (with compilation):",t.timeit(number=1))
 
-# print("Execution time for calc_splines with numba (after compilation):",t.timeit(number=1))
+print("Execution time for calc_splines with numba (after compilation):",t.timeit(number=1))
 
