@@ -2,7 +2,7 @@ import numpy as np
 import math
 from timeit import Timer
 from numba.pycc import CC
-from numba import jit
+from numba import jit, objmode
 
 # Module name
 cc = CC('calc_splines_numba')
@@ -23,21 +23,21 @@ def diff(arr, axis=0):   # implementation for np.diff function
     assert arr.ndim == 2
     assert axis in [0, 1]
     if axis == 0:
-        result = np.empty((arr.shape[1], arr.shape[0]-1))
-        for i in range(len(arr)):
-            arr2 = np.copy(arr)[:, i].flatten()
-            result[i] = np.diff(arr2)
-        return np.transpose(result)
+        col_diff_arr = np.empty((arr.shape[1], arr.shape[0]-1))
+        for i in range(arr.shape[1]):   # loop through columns
+            col_arr = np.copy(arr)[:, i].flatten()
+            col_diff_arr[i] = np.diff(col_arr)
+        return np.transpose(col_diff_arr)
     else:
         return np.diff(np.copy(arr))    # default is the last axis (axis=1)
 
-@cc.export('calc_splines', 'UniTuple(float64[:,:],4)(float64[:,:], float64[:], float64, float64, boolean)')
+@cc.export('calc_splines', 'UniTuple(float64[:,:],4)(float64[:,:], optional(float64[:]), optional(float64), optional(float64), optional(boolean))')
 @jit(nopython=True, cache=True)
 def calc_splines(path: np.ndarray,
                  el_lengths: np.ndarray = None,
                  psi_s: float = None,
                  psi_e: float = None,
-                 use_dist_scaling: bool = True) -> tuple:
+                 use_dist_scaling: bool = None) -> tuple:
     """
     Author:
     Tim Stahl & Alexander Heilmeier
@@ -70,6 +70,9 @@ def calc_splines(path: np.ndarray,
     Coefficient matrices have the form a_i, b_i * t, c_i * t^2, d_i * t^3.
     """
     
+    if use_dist_scaling is None:
+        use_dist_scaling = True
+
     # check if path is closed
     if np.all(isclose(path[0], path[-1])):      # Numba 0.46.0 does not support NumPy function 'numpy.isclose'
         closed = True
@@ -82,7 +85,7 @@ def calc_splines(path: np.ndarray,
 
     if el_lengths is not None and path.shape[0] != el_lengths.size + 1:
         raise ValueError("el_lengths input must be one element smaller than path input!")
-
+    
     # if distances between path coordinates are not provided but required, calculate euclidean distances as el_lengths
     if use_dist_scaling and el_lengths is None:
         el_lengths = np.sqrt(np.sum(np.power(diff(path, axis=0), 2), axis=1))
