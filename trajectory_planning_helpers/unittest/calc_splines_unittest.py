@@ -24,13 +24,16 @@ class CalcSplinesTest(unittest.TestCase):
     def test_diff(self):
         for input in self.inputs:
             path = input['path']
-            print("path: ", path)
             numba_diff_result = cspn.diff(path, 0)
             numpy_diff_result = np.diff(path, axis=0)
             self.assertTrue(str(numba_diff_result) == str(numpy_diff_result))
     
     def test_isclose(self):
-        pass
+        for input in self.inputs:
+            path = input['path']
+            numba_isclose_result = cspn.isclose(path[0], path[-1])
+            numpy_isclose_result = np.isclose(path[0], path[-1])
+            self.assertTrue(str(numba_isclose_result) == str(numpy_isclose_result))
 
 if __name__ == '__main__':
     unittest.main()
