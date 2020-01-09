@@ -231,15 +231,32 @@ class CalcVelProfileTest(unittest.TestCase):
                                     if vx_possible_next > vx_max or (acc_inds_rel and i >= acc_inds_rel[0]):
                                         break
 
-
-
-                            
-         
     def test_flipud(self):
-        pass
+        for input in self.inputs:
+            kappa, el_lengths, mu = input['kappa'], input['el_lengths'], input.get('mu',None)
+            radii = np.abs(np.divide(1.0, kappa, np.full(kappa.size, np.inf)))
+            if mu is None:
+                mu = np.ones(kappa.size)
 
+            for item in [kappa, el_lengths, mu, radii]:
+                flipud_numba_result = cvpn.flipud(item)
+                flipud_numpy_result = np.flipud(item)
+                self.assertTrue(str(flipud_numba_result) == str(flipud_numpy_result))
+                
     def test_insert(self):
-        pass
+        for input in self.inputs:
+            kappa, el_lengths, mu = input['kappa'], input['el_lengths'], input.get('mu',None)
+            radii = np.abs(np.divide(1.0, kappa, np.full(kappa.size, np.inf)))
+            if mu is None:
+                mu = np.ones(kappa.size)
+
+            for item in [kappa, el_lengths, mu, radii]:
+                for index in (0, len(item)):
+                    for value in np.arange(-5, 5, 0.05):
+                        insert_numba_result = cvpn.insert(item,index,value)
+                        insert_numpy_result = np.insert(item,index,value)
+                        self.assertTrue(str(insert_numba_result) == str(insert_numpy_result))
+
 
 if __name__ == '__main__':
     unittest.main()
