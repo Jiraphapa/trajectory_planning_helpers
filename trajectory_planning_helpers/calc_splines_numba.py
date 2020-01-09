@@ -2,7 +2,7 @@ import numpy as np
 import math
 from timeit import Timer
 from numba.pycc import CC
-from numba import jit, objmode
+from numba import jit
 
 # Module name
 cc = CC('calc_splines_numba')
