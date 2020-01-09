@@ -17,9 +17,9 @@ def isclose(a, b):  # implementation for np.isclose function
     result = np.less_equal(np.abs(x-y), atol + rtol * np.abs(y))   
     return result 
 
-@cc.export('diff', 'float64[:,:](float64[:,:], uint8)')
+@cc.export('diff', 'float64[:,:](float64[:,:], optional(uint8))')
 @jit(nopython=True, cache=True)
-def diff(arr, axis=0):   # implementation for np.diff function
+def diff(arr, axis=1):   # implementation for np.diff function with axis parameter supported
     assert arr.ndim == 2
     assert axis in [0, 1]
     if axis == 0:

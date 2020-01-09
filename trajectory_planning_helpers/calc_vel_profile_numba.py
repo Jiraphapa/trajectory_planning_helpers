@@ -8,7 +8,7 @@ from numba import jit
 # Module name
 cc = CC('calc_vel_profile_numba')
 
-@cc.export('calc_vel_profile', 'float64[:](float64[:,:], float64[:], float64[:], boolean, float64, float64, float64, float64[:], float64, float64, int64)')
+@cc.export('calc_vel_profile', 'float64[:](float64[:,:], float64[:], float64[:], boolean, float64, float64, float64, optional(float64[:]), optional(float64), optional(float64), optional(int64))')
 @jit(nopython=True, cache=True)
 def calc_vel_profile(ggv: np.ndarray,
                      kappa: np.ndarray,
@@ -122,12 +122,12 @@ def calc_vel_profile(ggv: np.ndarray,
 
     if filt_window is not None:
         vx_profile = conv_filt_numba.conv_filt(signal=vx_profile,
-                                               filt_window=filt_window,
+                                               filt_window=filt_window+0,    # '+0' to prevent unsupported operation with Nonetype (optional argument in Numba)
                                                closed=closed)
 
     return vx_profile
 
-@cc.export('__solver_fb_unclosed', 'float64[:](float64[:,:], float64[:], float64[:], float64[:], float64, float64, float64, float64, float64)')
+@cc.export('__solver_fb_unclosed', 'float64[:](float64[:,:], float64[:], float64[:], float64[:], float64, optional(float64), optional(float64), optional(float64), optional(float64))')
 @jit(nopython=True, cache=True)
 def __solver_fb_unclosed(ggv: np.ndarray,
                          radii: np.ndarray,
@@ -138,6 +138,15 @@ def __solver_fb_unclosed(ggv: np.ndarray,
                          dyn_model_exp: float = 1.0,
                          drag_coeff: float = 0.85,
                          m_veh: float = 1160.0) -> np.ndarray:
+
+    if dyn_model_exp is None:
+        dyn_model_exp = 1.0
+
+    if drag_coeff is None:
+        drag_coeff = 0.85
+
+    if m_veh is None:
+        m_veh = 1160.0
 
     # ------------------------------------------------------------------------------------------------------------------
     # FORWARD BACKWARD SOLVER ------------------------------------------------------------------------------------------
@@ -223,7 +232,7 @@ def __solver_fb_closed(ggv: np.ndarray,
     vx_profile_double = np.concatenate((vx_profile, vx_profile), axis=0)
     radii_double = np.concatenate((radii, radii), axis=0)
     el_lengths_double = np.concatenate((el_lengths, el_lengths), axis=0)
-    mu_double = np.concatenate((mu, mu), axis=0)
+    mu_double = np.concatenate((np.copy(mu), np.copy(mu)), axis=0)
 
     # calculate acceleration profile
     vx_profile_double = __solver_fb_acc_profile(ggv=ggv,
@@ -267,7 +276,7 @@ def insert(array, index, value): # implementation for np.insert function
     result_list.insert(index,value)
     return np.asarray(result_list)
 
-@cc.export('__solver_fb_acc_profile', 'float64[:](float64[:,:], float64[:], float64[:], float64[:], float64[:], float64, float64, float64, boolean)')
+@cc.export('__solver_fb_acc_profile', 'float64[:](float64[:,:], float64[:], float64[:], float64[:], float64[:], float64, float64, float64, optional(boolean))')
 @jit(nopython=True, cache=True)
 def __solver_fb_acc_profile(ggv: np.ndarray,
                             radii: np.ndarray,
@@ -278,6 +287,9 @@ def __solver_fb_acc_profile(ggv: np.ndarray,
                             drag_coeff: float,
                             m_veh: float,
                             backwards: bool = False) -> np.ndarray:
+
+    if backwards is None:
+        backwards = False
 
     # ------------------------------------------------------------------------------------------------------------------
     # PREPARATIONS -----------------------------------------------------------------------------------------------------
@@ -393,7 +405,7 @@ def __solver_fb_acc_profile(ggv: np.ndarray,
     return vx_profile
 
 
-@cc.export('calc_ax_poss', 'float64(float64, float64, float64[:,:], float64, float64, float64, float64, unicode_type)')
+@cc.export('calc_ax_poss', 'float64(float64, float64, float64[:,:], float64, float64, float64, float64, optional(unicode_type))')
 @jit(nopython=True, cache=True)
 def calc_ax_poss(vx_start: float,
                  radius: float,
@@ -425,6 +437,9 @@ def calc_ax_poss(vx_start: float,
     # ------------------------------------------------------------------------------------------------------------------
     # PREPARATIONS -----------------------------------------------------------------------------------------------------
     # ------------------------------------------------------------------------------------------------------------------
+
+    if mode is None:
+        mode = 'accel_forw'
 
     # check input
     if mode not in ['accel_forw', 'decel_forw', 'decel_backw']:

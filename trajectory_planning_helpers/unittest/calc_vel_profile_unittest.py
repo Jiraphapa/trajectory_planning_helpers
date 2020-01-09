@@ -17,20 +17,14 @@ class CalcVelProfileTest(unittest.TestCase):
     
     def test_calc_vel_profile(self):
         for input in self.inputs:
-            ggv, kappa, el_lengths, closed, dyn_model_exp, drag_coeff, m_veh, mu, v_start, v_end, filt_window = input['ggv'], input['kappa'], input['el_lengths'], input['closed'], input.get('dyn_model_exp',1.0), input.get('drag_coeff',0.85), input.get('m_veh',1160.0), input.get('mu',None), input.get('v_start',0.0), input.get('v_end',0.0), input.get('filt_window',1)
-            if mu is None:
-                mu = np.ones(kappa.size)
-            
+            ggv, kappa, el_lengths, closed, dyn_model_exp, drag_coeff, m_veh, mu, v_start, v_end, filt_window = input['ggv'], input['kappa'], input['el_lengths'], input['closed'], input.get('dyn_model_exp',1.0), input.get('drag_coeff',0.85), input.get('m_veh',1160.0), input.get('mu',None), input.get('v_start',None), input.get('v_end',None), input.get('filt_window',None)
             calc_vel_profile_numba_result = cvpn.calc_vel_profile(ggv, kappa, el_lengths, closed, dyn_model_exp, drag_coeff, m_veh, mu, v_start, v_end, 1)
             calc_vel_profile_result = cvp.calc_vel_profile(ggv, kappa, el_lengths, closed, dyn_model_exp, drag_coeff, m_veh, mu, v_start, v_end, 1)
             self.assertTrue(str(calc_vel_profile_numba_result) == str(calc_vel_profile_result))
 
     def test_calc_ax_poss(self):
         for input in self.inputs:
-            ggv, kappa, el_lengths, closed, dyn_model_exp, drag_coeff, m_veh, mu, v_start, v_end, filt_window = input['ggv'], input['kappa'], input['el_lengths'], input['closed'], input.get('dyn_model_exp',1.0), input.get('drag_coeff',0.85), input.get('m_veh',1160.0), input.get('mu',None), input.get('v_start',0.0), input.get('v_end',0.0), input.get('filt_window',1)
-            if mu is None:
-                mu = np.ones(kappa.size)
-                
+            ggv, kappa, el_lengths, closed, dyn_model_exp, drag_coeff, m_veh, mu, v_start, v_end, filt_window = input['ggv'], input['kappa'], input['el_lengths'], input['closed'], input.get('dyn_model_exp',1.0), input.get('drag_coeff',0.85), input.get('m_veh',1160.0), input.get('mu',None), input.get('v_start',None), input.get('v_end',None), input.get('filt_window',None)    
             if mu is None or kappa.size == mu.size:
                 if (not closed or kappa.size == el_lengths.size) and (closed or kappa.size == el_lengths.size + 1):
                     if closed or v_start is not None:

@@ -102,7 +102,7 @@ signal = np.ones((50))
 filt_window = 101
 closed = True
 t = Timer(lambda: conv_filt(signal, filt_window, closed))
-print("Execution time for calc_splines with numba (with compilation):",t.timeit(number=1))
+print("Execution time for conv_filt with numba (with compilation):",t.timeit(number=1))
 
 t = Timer(lambda: conv_filt(signal, filt_window, closed))
-print("Execution time for calc_splines with numba (with compilation):",t.timeit(number=1))
+print("Execution time for conv_filt with numba (with compilation):",t.timeit(number=1))
