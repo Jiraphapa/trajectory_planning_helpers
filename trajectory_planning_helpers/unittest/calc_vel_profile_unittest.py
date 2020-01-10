@@ -17,13 +17,14 @@ class CalcVelProfileTest(unittest.TestCase):
     
     def test_calc_vel_profile(self):
         for input in self.inputs:
-            ggv, ax_max_machines, kappa, el_lengths, closed, drag_coeff, m_veh, v_max, dyn_model_exp, mu, v_start, v_end, filt_window = input['ggv'], input.get('ax_max_machines', None), input['kappa'], input['el_lengths'], input['closed'], input.get('drag_coeff',0.85), input.get('m_veh',1160.0), input.get('v_max', None), input.get('dyn_model_exp',None), input.get('mu',None), input.get('v_start',None), input.get('v_end',None), input.get('filt_window',None)
-            ggv = ggv[:,[0,1,2]] 
+            ax_max_machines, kappa, el_lengths, closed, drag_coeff, m_veh, ggv, loc_gg, v_max, dyn_model_exp, mu, v_start, v_end, filt_window = input.get('ax_max_machines', None), input['kappa'], input['el_lengths'], input['closed'], input.get('drag_coeff',0.85), input.get('m_veh',1160.0), input.get('ggv', None), input.get('loc_gg', None), input.get('v_max', None), input.get('dyn_model_exp',None), input.get('mu',None), input.get('v_start',None), input.get('v_end',None), input.get('filt_window',None)
+            if ggv is not None:
+                ggv = ggv[:,[0,1,2]] 
             if ax_max_machines is None:
                 ax_max_machines = ggv[:,[0,1]]
 
-            calc_vel_profile_numba_result = cvpn.calc_vel_profile(ggv, ax_max_machines, kappa, el_lengths, closed, drag_coeff, m_veh, v_max, dyn_model_exp, mu, v_start, v_end, filt_window)
-            calc_vel_profile_result = cvp.calc_vel_profile(ggv, ax_max_machines, kappa, el_lengths, closed, drag_coeff, m_veh, v_max, dyn_model_exp, mu, v_start, v_end, filt_window)
+            calc_vel_profile_numba_result = cvpn.calc_vel_profile(ax_max_machines, kappa, el_lengths, closed, drag_coeff, m_veh, ggv, loc_gg, v_max, dyn_model_exp, mu, v_start, v_end, filt_window)
+            calc_vel_profile_result = cvp.calc_vel_profile(ax_max_machines, kappa, el_lengths, closed, drag_coeff, m_veh, ggv, loc_gg, v_max, dyn_model_exp, mu, v_start, v_end, filt_window)
             self.assertTrue(str(calc_vel_profile_numba_result) == str(calc_vel_profile_result))
 
     def test_flipud(self):
