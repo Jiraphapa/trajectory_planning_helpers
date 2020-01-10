@@ -7,36 +7,47 @@ def calc_vel_profile_brake(ggv: np.ndarray,
                            kappa: np.ndarray,
                            el_lengths: np.ndarray,
                            v_start: float,
-                           dyn_model_exp: float,
                            drag_coeff: float,
                            m_veh: float,
+                           dyn_model_exp: float = 1.0,
                            mu: np.ndarray = None,
                            decel_max: float = None) -> np.ndarray:
     """
-    Author:
+    author:
     Alexander Heilmeier
 
-    Modified by:
+    modified by:
     Tim Stahl
 
-    Description:
+    .. description::
     Calculate brake (may also be emergency) velocity profile based on a local trajectory.
 
-    Inputs:
-    ggv:            ggv-diagram to be applied: [v, ax_max_machines, ax_max_tires, ax_min_tires, ay_max_tires].
-                    ax_max_machines should be handed in without considering drag resistance!
-    kappa:          curvature profile of given trajectory in rad/m.
-    el_lengths:     element lengths (distances between coordinates) of given trajectory.
-    v_start:        start velocity in m/s.
-    mu:             friction coefficients.
-    decel_max:      maximum deceleration to be applied (if set to "None", the max. based on ggv and kappa will be used).
-    dyn_model_exp:  exponent used in the vehicle dynamics model (usual range [1.0,2.0]).
-    drag_coeff:     drag coefficient including all constants: drag_coeff = 0.5 * c_w * A_front * rho_air
-    m_veh:          vehicle mass in kg.
+    .. inputs::
+    :param ggv:             ggv-diagram to be applied: [vx, ax_max, ay_max]. Velocity in m/s, accelerations in m/s2.
+    :type ggv:              np.ndarray
+    :param kappa:           curvature profile of given trajectory in rad/m.
+    :type kappa:            np.ndarray
+    :param el_lengths:      element lengths (distances between coordinates) of given trajectory.
+    :type el_lengths:       np.ndarray
+    :param v_start:         start velocity in m/s.
+    :type v_start:          float
+    :param drag_coeff:      drag coefficient including all constants: drag_coeff = 0.5 * c_w * A_front * rho_air
+    :type drag_coeff:       float
+    :param m_veh:           vehicle mass in kg.
+    :type m_veh:            float
+    :param dyn_model_exp:   exponent used in the vehicle dynamics model (usual range [1.0,2.0]).
+    :type dyn_model_exp:    float
+    :param mu:              friction coefficients.
+    :type mu:               np.ndarray
+    :param decel_max:       maximum deceleration to be applied (if set to "None", the max. based on ggv and kappa will
+                            be used).
+    :type decel_max:        float
 
-    Outputs:
-    vx_profile:     calculated velocity profile using maximum deceleration of the car.
+    .. outputs::
+    :return vx_profile:     calculated velocity profile using maximum deceleration of the car.
+    :rtype vx_profile:      np.ndarray
 
+    .. notes::
     len(kappa) = len(el_lengths) + 1 = len(mu) = len(vx_profile)
     """
 
@@ -59,6 +70,12 @@ def calc_vel_profile_brake(ggv: np.ndarray,
 
     if not 1.0 <= dyn_model_exp <= 2.0:
         print('WARNING: Exponent for the vehicle dynamics model should be in the range [1.0,2.0]!')
+
+    if ggv.shape[1] != 3:
+        raise ValueError("ggv diagram must consist of the three columns [vx, ax_max, ay_max]!")
+
+    if ggv[-1, 0] < v_start:
+        raise ValueError("ggv has to cover the entire velocity range of the car (i.e. >= v_start)!")
 
     # ------------------------------------------------------------------------------------------------------------------
     # PREPARATIONS -----------------------------------------------------------------------------------------------------
@@ -83,10 +100,13 @@ def calc_vel_profile_brake(ggv: np.ndarray,
 
     for i in range(no_points - 1):
 
-        # calculat longitudinal acceleration
+        # calculate longitudinal acceleration
+        ggv_mod = np.copy(ggv)
+        ggv_mod[:, 1] *= -1.0  # use negative acceleration in x axis for forward deceleration
         ax_final = trajectory_planning_helpers.calc_vel_profile.calc_ax_poss(vx_start=vx_profile[i],
                                                                              radius=radii[i],
-                                                                             ggv=ggv[:, [0, 1, 3, 4]],
+                                                                             ggv=ggv_mod,
+                                                                             ax_max_machines=None,
                                                                              mu=mu[i],
                                                                              mode='decel_forw',
                                                                              dyn_model_exp=dyn_model_exp,
@@ -103,7 +123,7 @@ def calc_vel_profile_brake(ggv: np.ndarray,
         # consider desired maximum deceleration
         if decel_max is not None and ax_final < decel_max:
             # since this planner cannot use positive tire accelerations (this would require another interpolation of
-            # ggv[:, 2]) to overcome drag we plan with the drag acceleration if it is greater (i.e. more negative) than
+            # ggv[:, 1]) to overcome drag we plan with the drag acceleration if it is greater (i.e. more negative) than
             # the desired maximum deceleration
             if ax_drag < decel_max:
                 ax_final = ax_drag

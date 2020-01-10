@@ -18,7 +18,7 @@ not work properly on a common street network.
 * `conv_filt`: Filter a given signal using a 1D convolution (moving average) filter.
 * `create_raceline`: Function to create a raceline on the basis of the reference line and an optimization result.
 * `get_rel_path_part`: Get relevant part of a given path on the basis of a s position and a specified range.
-* `import_ggv`: Import the ggv diagram containing vehicle handling limits from a text file.
+* `import_veh_dyn_info`: Import the required vehicle dynamics information from several files: ggv and ax_max_machines.
 * `interp_splines`: Interpolate splines to get points with a desired stepsize.
 * `interp_track_widths`: Interpolation function for track widths.
 * `iqp_handler`: Handler function to iteratively call the minimum curvature optimization.
@@ -30,5 +30,9 @@ not work properly on a common street network.
 * `progressbar`: Commandline progressbar (to be called in a for loop).
 * `side_of_line`: Function determines if a point is on the left or right side of a line.
 * `spline_approximation`: Function used to obtain a smoothed track on the basis of a spline approximation.
+
+# Solutions for possible installation problems
+1) (Ubuntu) `matplotlib` requires `tkinter` -> can be solved by `sudo apt install python3-tk` 
+2) (Ubuntu) `Python.h` required for `quadprog` -> can be solved by `sudo apt install python3-dev` 
 
 Contact persons: [Alexander Heilmeier](mailto:alexander.heilmeier@tum.de), [Tim Stahl](mailto:stahl@ftm.mw.tum.de).
