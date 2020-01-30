@@ -167,7 +167,7 @@ def calc_vel_profile(ax_max_machines: np.ndarray,
 
     # CASE 1: ggv supplied -> copy it for every waypoint
     if ggv is not None:
-        p_ggv = np.empty((0, 2, 3))
+        p_ggv = np.empty((0, 0, 3))
         if kappa.size >= 0:
             p_ggv = np.expand_dims(ggv, axis=0)      # Notes: Numba 0.46.0 currently not support numpy.repeat with axis argument
             for i in range(kappa.size-1):            # same functionality with: p_ggv = np.repeat(np.expand_dims(ggv, axis=0), kappa.size, axis=0)
