@@ -223,16 +223,16 @@ def calc_splines(path: np.ndarray,
 if __name__ == "__main__":
     cc.compile()
 
-path = 'unittest/calc_splines_inputs/'
-inputs = list()
-for filename in glob.glob(os.path.join(path, '*.pkl')):
-    with open(filename, 'rb') as fh:
-        data = pickle.load(fh)
-        inputs.append(data)
+# path = 'unittest/calc_splines_inputs/'
+# inputs = list()
+# for filename in glob.glob(os.path.join(path, '*.pkl')):
+#     with open(filename, 'rb') as fh:
+#         data = pickle.load(fh)
+#         inputs.append(data)
 
-input = inputs[0]
-path, el_lengths, psi_s, psi_e, use_dist_scaling = input['path'], input.get('el_lengths',None), input.get('psi_s',None), input.get('psi_e',None), input.get('use_dist_scaling',True)
-t = Timer(lambda: calc_splines(path, el_lengths, psi_s, psi_e, use_dist_scaling))
-print("Execution time for calc_splines with numba (with compilation):",t.timeit(number=1))
-print("Execution time for calc_splines with numba (after compilation):",t.timeit(number=1))
+# input = inputs[0]
+# path, el_lengths, psi_s, psi_e, use_dist_scaling = input['path'], input.get('el_lengths',None), input.get('psi_s',None), input.get('psi_e',None), input.get('use_dist_scaling',True)
+# t = Timer(lambda: calc_splines(path, el_lengths, psi_s, psi_e, use_dist_scaling))
+# print("Execution time for calc_splines with numba (with compilation):",t.timeit(number=1))
+# print("Execution time for calc_splines with numba (after compilation):",t.timeit(number=1))
 
