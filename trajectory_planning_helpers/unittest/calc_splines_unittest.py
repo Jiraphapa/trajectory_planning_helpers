@@ -20,13 +20,6 @@ class CalcSplinesTest(unittest.TestCase):
             calc_splines_numba_result = cspn.calc_splines(path, el_lengths, psi_s, psi_e, use_dist_scaling)
             calc_splines_result = csp.calc_splines(path, el_lengths, psi_s, psi_e, use_dist_scaling)
             self.assertTrue(str(calc_splines_numba_result) == str(calc_splines_result))
-
-    def test_diff(self):
-        for input in self.inputs:
-            path = input['path']
-            numba_diff_result = cspn.diff(path, 0)
-            numpy_diff_result = np.diff(path, axis=0)
-            self.assertTrue(str(numba_diff_result) == str(numpy_diff_result))
     
     def test_isclose(self):
         for input in self.inputs:
