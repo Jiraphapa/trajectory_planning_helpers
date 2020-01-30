@@ -177,8 +177,9 @@ def calc_vel_profile(ax_max_machines: np.ndarray,
 
     # CASE 2: local gg diagram supplied -> add velocity dimension (artificial velocity of 10.0 m/s)
     else:
-        p_ggv = np.expand_dims(np.column_stack((np.ones(loc_gg.shape[0]) * 10.0, np.copy(loc_gg))), axis=1)
-        op_mode = 'loc_gg'
+        if loc_gg is not None:
+            p_ggv = np.expand_dims(np.column_stack((np.ones(loc_gg.shape[0]) * 10.0, np.copy(loc_gg))), axis=1)
+            op_mode = 'loc_gg'
 
     # ------------------------------------------------------------------------------------------------------------------
     # SPEED PROFILE CALCULATION (FB) -----------------------------------------------------------------------------------
