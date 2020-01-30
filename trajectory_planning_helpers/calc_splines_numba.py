@@ -4,6 +4,11 @@ from timeit import Timer
 from numba.pycc import CC
 from numba import jit
 
+# for exe. time measurement
+# from timeit import Timer
+# import pickle
+# import os, glob
+
 # Module name
 cc = CC('calc_splines_numba')
 
@@ -16,20 +21,6 @@ def isclose(a, b):  # implementation for np.isclose function
     # check if arrays are element-wise equal within a tolerance (assume that both arrays are of valid format)
     result = np.less_equal(np.abs(x-y), atol + rtol * np.abs(y))   
     return result 
-
-@cc.export('diff', 'float64[:,:](float64[:,:], optional(uint8))')
-@jit(nopython=True, cache=True)
-def diff(arr, axis=1):   # implementation for np.diff function with axis parameter supported
-    assert arr.ndim == 2
-    assert axis in [0, 1]
-    if axis == 0:
-        col_diff_arr = np.empty((arr.shape[1], arr.shape[0]-1))
-        for i in range(arr.shape[1]):   # loop through columns
-            col_arr = np.copy(arr)[:, i].flatten()
-            col_diff_arr[i] = np.diff(col_arr)
-        return np.transpose(col_diff_arr)
-    else:
-        return np.diff(np.copy(arr))    # default is the last axis (axis=1)
 
 @cc.export('calc_splines', 'UniTuple(float64[:,:],4)(float64[:,:], optional(float64[:]), optional(float64), optional(float64), optional(boolean))')
 @jit(nopython=True, cache=True)
@@ -104,7 +95,11 @@ def calc_splines(path: np.ndarray,
     
     # if distances between path coordinates are not provided but required, calculate euclidean distances as el_lengths
     if use_dist_scaling and el_lengths is None:
-        el_lengths = np.sqrt(np.sum(np.power(diff(path, axis=0), 2), axis=1))
+        #el_lengths = np.sqrt(np.sum(np.power(diff(path, axis=0), 2), axis=1))
+        path2 = np.transpose(path)
+        diff_path2 = np.diff(np.copy(path2))
+        path3 = np.transpose(diff_path2)
+        el_lengths = np.sqrt(np.sum(np.power(np.diff(path3), 2), axis=1))
 
     # if closed and use_dist_scaling active append element length in order to obtain overlapping elements for proper
     # scaling of the last element afterwards
@@ -139,6 +134,9 @@ def calc_splines(path: np.ndarray,
                  [0,  1,  2,  3,  0, -1,  0,  0],   # _      a_1i + 2a_2i + 3a_3i      - a_1i+1             = 0
                  [0,  0,  2,  6,  0,  0, -2,  0]])  # _             2a_2i + 6a_3i               - 2a_2i+1   = 0
 
+    template_no_curv_head_bounds_last_elem = np.array([[1,  0,  0,  0],  # no curvature and heading bounds on last element
+                                     [1,  1,  1,  1]])
+
     for i in range(no_splines):
         j = i * 4
 
@@ -149,8 +147,7 @@ def calc_splines(path: np.ndarray,
             M[j + 3, j + 6] *= math.pow(scaling[i], 2)
 
         else:
-            M[j: j + 2, j: j + 4] = np.array([[1,  0,  0,  0],  # no curvature and heading bounds on last element
-                                     [1,  1,  1,  1]])
+            M[j: j + 2, j: j + 4] = template_no_curv_head_bounds_last_elem
 
         b_x[j: j + 2] = np.array([[path[i,     0]],      # NOTE: the bounds of the two last equations remain zero
                          [path[i + 1, 0]]])
@@ -226,10 +223,16 @@ def calc_splines(path: np.ndarray,
 if __name__ == "__main__":
     cc.compile()
 
-path = np.ones((15,2))
-el_lengths = np.ones((14))
-t = Timer(lambda: calc_splines(path,el_lengths))
-print("Execution time for calc_splines with numba (with compilation):",t.timeit(number=1))
+path = 'unittest/calc_splines_inputs/'
+inputs = list()
+for filename in glob.glob(os.path.join(path, '*.pkl')):
+    with open(filename, 'rb') as fh:
+        data = pickle.load(fh)
+        inputs.append(data)
 
+input = inputs[0]
+path, el_lengths, psi_s, psi_e, use_dist_scaling = input['path'], input.get('el_lengths',None), input.get('psi_s',None), input.get('psi_e',None), input.get('use_dist_scaling',True)
+t = Timer(lambda: calc_splines(path, el_lengths, psi_s, psi_e, use_dist_scaling))
+print("Execution time for calc_splines with numba (with compilation):",t.timeit(number=1))
 print("Execution time for calc_splines with numba (after compilation):",t.timeit(number=1))
 
